@@ -2,12 +2,14 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog, messagebox
 from os import listdir
+from functools import partial
 from os.path import isfile, join
 
 #TODO
 #Get new_note working
 #Add menu bar
 #Smooth out bugs with loading and saving
+#combine functions together
 
 #Add linking ability
 #Right click in browser, link to current note
@@ -15,32 +17,43 @@ from os.path import isfile, join
 
 #Sort by tags
 
-def load_notes(*args):
+def load(*args):
     filename.set(filedialog.askdirectory())
     all_notes = [filename.get()+'/'+f for f in listdir(filename.get()) if isfile(join(filename.get(), f))]
-    all_note_types = []
     for note in all_notes:
         with open(note) as f:
             note_data = f.read().split(';')
             curr_note_type = note_data[3]
-            
             if curr_note_type=='':
                 continue
-            
             if curr_note_type not in all_note_types:
                 all_note_types.append(curr_note_type)
                 browser.insert('', 'end', curr_note_type, text=curr_note_type)
-                
             browser.insert(curr_note_type, 'end', note_data[0], text=note_data[0])
             for tag in note_data[4].split(','):
                 if tag not in all_tags:
                     all_tags.append(tag)
-    print(all_tags)
-
+def refresh(*args):
+    all_tags = []
+    all_note_types = []
+    browser.delete(*browser.get_children())
+    all_notes = [filename.get()+'/'+f for f in listdir(filename.get()) if isfile(join(filename.get(), f))]
+    for note in all_notes:
+        with open(note) as f:
+            note_data = f.read().split(';')
+            curr_note_type = note_data[3]
+            if curr_note_type=='':
+                continue
+            if curr_note_type not in all_note_types:
+                all_note_types.append(curr_note_type)
+                browser.insert('', 'end', curr_note_type, text=curr_note_type)
+            browser.insert(curr_note_type, 'end', note_data[0], text=note_data[0])
+            for tag in note_data[4].split(','):
+                if tag not in all_tags:
+                    all_tags.append(tag)
+                    
 def load_note(*args):
-
     text.delete('1.0', 'end')
-
     current_note.set(value=browser.item(browser.focus())['text'])
     try:
         with open(filename.get() + '/' + current_note.get()) as f:
@@ -52,25 +65,24 @@ def load_note(*args):
     except Exception as e:
         pass
 
-def save_note_as(*args):
-    filename.set(value=filedialog.asksaveasfilename())
-    current_note.set(value=filename.get().split('/')[-1])
     
-    note_data = [current_note.get(), text.get('1.0', 'end'), linked.get(), note_type.get(), note_tags.get()]
-    
-    with open(filename.get(), 'w') as f:
+def save(*args):
+    if filename.get()=='' or current_note.get()=='':
+        current_note.set(value=filedialog.asksaveasfilename().split('/')[-1])
+    with open(filename.get()+'/'+current_note.get(), 'w') as f:
+        note_data = [current_note.get(), text.get('1.0', 'end'), linked.get(), note_type.get(), note_tags.get()]
         f.write(';'.join(note_data))
-    print("saved!")
+    refresh()
+def save_as(*args):
+    current_note.set(value=filedialog.asksaveasfilename().split('/')[-1])
+    with open(filename.get()+'/'+current_note.get(), 'w') as f:
+        note_data = [current_note.get(), text.get('1.0', 'end'), linked.get(), note_type.get(), note_tags.get()]
+        f.write(';'.join(note_data))
+    refresh()
     
-def save_note(*args):
-    if filename.get()=='' or current_note.get()=='Untitled':
-        save_note_as()
-    else:
-       with open(filename.get()+'/'+current_note.get(), 'w') as f:
-           print(filename.get(), current_note.get())
-           note_data = [current_note.get(), text.get('1.0', 'end'), linked.get(), note_type.get(), note_tags.get()]
-           f.write(';'.join(note_data))
-           print("saved!")
+
+def new_note(*args):
+    pass
 
 #gui stuff
 root = Tk()
@@ -78,11 +90,12 @@ root.title("Notes")
 
 #global variables
 filename = StringVar() #folder holding notes
-current_note = StringVar(value='Untitled') #title of document
+current_note = StringVar() #title of document
 note_tags = StringVar() #list of note tags
 linked = StringVar() #all notes linked to this one
 note_type = StringVar() #top-level type of note
 all_tags = [] #set of all unique tags among all notes
+all_note_types = [] #global list of all unique note types
 
 #Notes Frame
 notes = ttk.LabelFrame(root, text="Notes")
@@ -122,10 +135,12 @@ linkedpages = Listbox(notes)
 linkedpages.grid(column=0, row=7, sticky=(W,E))
 
 #keybinds
+
 browser.bind('<Double-1>', load_note)
-root.bind('<Control-s>', save_note)
-root.bind('<Control-l>', load_notes)
-root.bind('<Control-S>', save_note_as)
+root.bind('<Control-s>', save)
+root.bind('<Control-l>', load)
+root.bind('<Control-S>', save_as)
+root.bind('<Control-r>', refresh)
 root.bind('<Control-n>', new_note)
 
 root.mainloop()
