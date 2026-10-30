@@ -2,15 +2,9 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog, messagebox
 from os import listdir
-from functools import partial
 from os.path import isfile, join
 
 #TODO
-#Get new_note working
-#Add menu bar
-#Smooth out bugs with loading and saving
-#combine functions together
-
 #Add linking ability
 #Right click in browser, link to current note
 #Or right click and choose another one to link to
@@ -51,7 +45,6 @@ def refresh(*args):
             for tag in note_data[4].split(','):
                 if tag not in all_tags:
                     all_tags.append(tag)
-                    
 def load_note(*args):
     text.delete('1.0', 'end')
     current_note.set(value=browser.item(browser.focus())['text'])
@@ -60,12 +53,11 @@ def load_note(*args):
             note_data = f.read().split(';')
             text.insert('1.0', note_data[1])
             linked.set(value=note_data[2])
+            linked_notes = note_data[2].split(",")
             note_type.set(value=note_data[3])
             note_tags.set(value=note_data[4])
     except Exception as e:
         pass
-
-    
 def save(*args):
     if filename.get()=='' or current_note.get()=='':
         current_note.set(value=filedialog.asksaveasfilename().split('/')[-1])
@@ -79,10 +71,17 @@ def save_as(*args):
         note_data = [current_note.get(), text.get('1.0', 'end'), linked.get(), note_type.get(), note_tags.get()]
         f.write(';'.join(note_data))
     refresh()
-    
-
 def new_note(*args):
-    pass
+    current_note.set(value='')
+    note_tags.set(value='')
+    linked.set(value='')
+    note_type.set(value='')
+    text.delete('1.0', 'end')
+def link_note(*args):
+    to_link = browser.focus()
+    if to_link not in linked_notes:
+        linked_notes.append(to_link)
+    linked.set(linked_notes)
 
 #gui stuff
 root = Tk()
@@ -96,6 +95,7 @@ linked = StringVar() #all notes linked to this one
 note_type = StringVar() #top-level type of note
 all_tags = [] #set of all unique tags among all notes
 all_note_types = [] #global list of all unique note types
+linked_notes = []
 
 #Notes Frame
 notes = ttk.LabelFrame(root, text="Notes")
@@ -120,6 +120,10 @@ browser = ttk.Treeview(notes)
 browser.grid(column=1,row=0, rowspan=7, sticky=(N,S))
 browser.heading('#0', text='Notes')
 
+linkmenu = Menu(browser, tearoff=0)
+linkmenu.add_command(label="Link to Current Note", command=link_note)
+browser.bind('<<ContextMenu>>', lambda e: linkmenu.post(e.x_root, e.y_root))  
+
 #note type
 typelabel = ttk.Label(notes, text="Note Type:")
 typelabel.grid(column=0, row=4, sticky = (W,E))
@@ -131,11 +135,23 @@ typeselect['values'] = ('Settlement', 'Hex', 'Dungeon', 'Creature', 'Object')
 #linked pages
 linklabel = ttk.Label(notes, text="Linked Pages:")
 linklabel.grid(column=0, row = 6, sticky=(W,E))
-linkedpages = Listbox(notes)
+linkedpages = Listbox(notes, listvariable=linked)
 linkedpages.grid(column=0, row=7, sticky=(W,E))
 
-#keybinds
+#Menubar
+menubar = Menu(root)
+file_menu = Menu(menubar, tearoff=0)
+file_menu.add_command(label="Create New Note", command=new_note)
+file_menu.add_separator()
+file_menu.add_command(label="Save Note As", command=save_as)
+file_menu.add_command(label="Save Note", command=save)
+file_menu.add_separator()
+file_menu.add_command(label="Load Directory", command=load)
 
+menubar.add_cascade(label="File", menu=file_menu)
+root.config(menu=menubar)
+
+#keybinds
 browser.bind('<Double-1>', load_note)
 root.bind('<Control-s>', save)
 root.bind('<Control-l>', load)
